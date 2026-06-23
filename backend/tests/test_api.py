@@ -23,9 +23,12 @@ def test_graph_empty(memdb):
 
 
 def test_old_unprefixed_path_is_gone(memdb):
+    # The API lives under /api now. The old root paths must not serve the API,
+    # whether or not the static SPA is mounted (which would answer GET / POST
+    # with 404 / 405 respectively).
     with TestClient(main.app) as client:
-        assert client.get("/process").status_code == 404
-        assert client.post("/process").status_code == 404
+        assert client.get("/process").status_code in (404, 405)
+        assert client.post("/process").status_code in (404, 405)
 
 
 def test_document_detail_and_references(memdb):
