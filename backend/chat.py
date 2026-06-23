@@ -4,6 +4,7 @@ import time
 import config
 import observability
 import retrieval
+import vision
 from db import get_db
 from prompts import SYSTEM_PROMPT
 
@@ -30,6 +31,24 @@ TOOLS = [
                 "type": "object",
                 "properties": {"document_id": {"type": "integer"}},
                 "required": ["document_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "view_page",
+            "description": "Render a PDF page as an image and have a vision model describe "
+            "its visual content (tables, drawings, plans, diagrams, stamps) that text "
+            "extraction misses. Use when a question concerns a drawing, figure or a "
+            "table whose layout matters. PDF documents only.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer"},
+                    "page": {"type": "integer", "description": "1-based page number"},
+                },
+                "required": ["document_id", "page"],
             },
         },
     },
@@ -90,6 +109,8 @@ def _dispatch(name: str, args: dict, metrics: dict) -> str:
         return _run_search(args.get("query", ""), metrics)
     if name == "read_document":
         return _read_document(args["document_id"])
+    if name == "view_page":
+        return vision.view_page(int(args["document_id"]), int(args.get("page", 1)))
     return f"Unknown tool: {name}"
 
 
