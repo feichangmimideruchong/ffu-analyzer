@@ -7,6 +7,47 @@ export type DocumentViewerProps = {
   activePage?: number | null
 }
 
+// Renders the lightweight Markdown that pymupdf4llm produces (headings, bold,
+// <br> line breaks) instead of showing the raw ##/** markers as literal text.
+function renderInline(text: string) {
+  return text.split(/\*\*/).map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : <span key={i}>{part}</span>,
+  )
+}
+
+function MarkdownText({ text }: { text: string }) {
+  const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n')
+  return (
+    <>
+      {lines.map((line, i) => {
+        const heading = /^(#{1,6})\s+(.*)$/.exec(line)
+        if (heading) {
+          const level = heading[1].length
+          const content = heading[2].replace(/\*\*/g, '').trim()
+          return (
+            <div
+              key={i}
+              style={{
+                fontWeight: 700,
+                fontSize: level <= 2 ? '1rem' : '0.9rem',
+                margin: '0.6rem 0 0.2rem',
+              }}
+            >
+              {content}
+            </div>
+          )
+        }
+        if (line.trim() === '') return <div key={i} style={{ height: '0.5rem' }} />
+        return (
+          <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
+            {renderInline(line)}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 export function DocumentViewer(props: DocumentViewerProps) {
   const pageRefs = useRef<Map<number, HTMLElement>>(new Map())
   const [highlightedPage, setHighlightedPage] = useState<number | null>(null)
@@ -99,9 +140,11 @@ export function DocumentViewer(props: DocumentViewerProps) {
           {pageGroups.get(page)!.map((chunk, index) => (
             <div key={index} style={{ marginBottom: '0.75rem' }}>
               {chunk.heading ? (
-                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{chunk.heading}</div>
+                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                  {chunk.heading.replace(/\*\*/g, '')}
+                </div>
               ) : null}
-              <div style={{ whiteSpace: 'pre-wrap' }}>{chunk.text}</div>
+              <MarkdownText text={chunk.text} />
             </div>
           ))}
         </section>
