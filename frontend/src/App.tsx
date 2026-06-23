@@ -4,14 +4,18 @@ import {
   ChatMessage,
   DocumentDetail,
   DocumentSummary,
+  fetchOverview,
+  generateOverview,
   getDocument,
   getDocuments,
+  OverviewItem,
   processFFU,
   sendChatStream,
 } from './api/client'
 import { DocumentList } from './components/DocumentList'
 import { DocumentViewer } from './components/DocumentViewer'
 import { Message } from './components/Message'
+import { OverviewPanel } from './components/OverviewPanel'
 
 const ui = {
   page: {
@@ -94,6 +98,9 @@ export default function App() {
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [status, setStatus] = useState('')
+  const [showOverview, setShowOverview] = useState(false)
+  const [overviewItems, setOverviewItems] = useState<OverviewItem[]>([])
+  const [overviewLoading, setOverviewLoading] = useState(false)
 
   const latestDocRequest = useRef<number | null>(null)
 
@@ -103,6 +110,14 @@ export default function App() {
       .catch(() => undefined)
   }, [])
 
+  useEffect(() => {
+    if (showOverview && overviewItems.length === 0) {
+      fetchOverview()
+        .then(setOverviewItems)
+        .catch(() => undefined)
+    }
+  }, [showOverview, overviewItems.length])
+
   const handleProcess = async () => {
     setStatus('Processing documents…')
     try {
@@ -111,6 +126,21 @@ export default function App() {
       setStatus(`Indexed ${result.documents} document(s), ${result.chunks} chunk(s).`)
     } catch (e) {
       setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  const handleGenerateOverview = async () => {
+    setOverviewLoading(true)
+    setShowOverview(true)
+    setStatus('Extracting overview…')
+    try {
+      await generateOverview()
+      setOverviewItems(await fetchOverview())
+      setStatus('Overview updated.')
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setOverviewLoading(false)
     }
   }
 
@@ -180,6 +210,13 @@ export default function App() {
         <button type="button" style={ui.button} onClick={handleProcess}>
           Process FFU
         </button>
+        <button
+          type="button"
+          style={{ ...ui.button, background: showOverview ? '#dbeafe' : '#fff' }}
+          onClick={() => setShowOverview((v) => !v)}
+        >
+          Overview
+        </button>
         <span role="status" aria-live="polite" style={ui.status}>
           {status}
         </span>
@@ -220,10 +257,24 @@ export default function App() {
           </form>
         </section>
 
-        <aside style={ui.pane} aria-label="Document list">
-          <h2 style={ui.paneHeading}>Documents</h2>
-          <div style={ui.scroll}>
-            <DocumentList documents={documents} selectedId={selectedId} onSelect={openDocument} />
+        <aside style={ui.pane} aria-label={showOverview ? 'Overview' : 'Document list'}>
+          <h2 style={ui.paneHeading}>{showOverview ? 'Overview' : 'Documents'}</h2>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {showOverview ? (
+              <OverviewPanel
+                items={overviewItems}
+                loading={overviewLoading}
+                onGenerate={handleGenerateOverview}
+                onOpenSource={(docId, page) => {
+                  setShowOverview(false)
+                  openDocument(docId, page)
+                }}
+              />
+            ) : (
+              <div style={ui.scroll}>
+                <DocumentList documents={documents} selectedId={selectedId} onSelect={openDocument} />
+              </div>
+            )}
           </div>
         </aside>
 

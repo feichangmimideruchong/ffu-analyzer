@@ -114,3 +114,28 @@ export async function sendChatStream(
     }
   }
 }
+
+export type OverviewItem = {
+  id: number
+  document_id: number
+  category: 'requirement' | 'deadline' | 'risk'
+  text: string
+  source_page: number
+  normalized_date: string | null
+  filename: string
+}
+
+export async function generateOverview(): Promise<number> {
+  const res = await fetch('/api/overview/generate', { method: 'POST' })
+  await checkResponse(res, 'generateOverview failed')
+  const data = await res.json()
+  return data.items as number
+}
+
+export async function fetchOverview(category?: string): Promise<OverviewItem[]> {
+  const url = category ? `/api/overview?category=${encodeURIComponent(category)}` : '/api/overview'
+  const res = await fetch(url)
+  await checkResponse(res, 'fetchOverview failed')
+  const data = await res.json()
+  return data.items
+}

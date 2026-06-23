@@ -3,7 +3,7 @@ import threading
 
 from config import DB_PATH
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE documents(
@@ -31,7 +31,16 @@ CREATE TABLE embeddings(
   chunk_id INTEGER PRIMARY KEY,
   vector BLOB
 );
+CREATE TABLE overview_items(
+  id INTEGER PRIMARY KEY,
+  document_id INTEGER,
+  category TEXT,
+  text TEXT,
+  source_page INTEGER,
+  normalized_date TEXT
+);
 CREATE INDEX idx_chunks_doc ON chunks(document_id);
+CREATE INDEX idx_overview_cat ON overview_items(category);
 """
 
 _conn: sqlite3.Connection | None = None
@@ -51,6 +60,7 @@ def init_db() -> None:
     version = db.execute("PRAGMA user_version").fetchone()[0]
     if version != SCHEMA_VERSION:
         db.executescript(
+            "DROP TABLE IF EXISTS overview_items;"
             "DROP TABLE IF EXISTS documents;"
             "DROP TABLE IF EXISTS chunks;"
             "DROP TABLE IF EXISTS embeddings;"

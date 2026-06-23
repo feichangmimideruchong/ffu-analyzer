@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 import chat
 import ingest
 import observability
+import overview
 import retrieval
 from db import get_db, init_db
 
@@ -54,6 +55,19 @@ def chat_stream(body: dict):
 @app.get("/stats")
 def stats():
     return observability.stats()
+
+
+@app.post("/overview/generate")
+def overview_generate():
+    logger.info("Generating overview...")
+    result = overview.generate_overview()
+    logger.info(f"Overview done: {result}")
+    return {"status": "ok", **result}
+
+
+@app.get("/overview")
+def overview_list(category: str | None = None):
+    return {"items": overview.list_overview(category)}
 
 
 @app.get("/documents")
