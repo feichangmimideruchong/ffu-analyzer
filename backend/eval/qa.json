@@ -1,0 +1,62 @@
+[
+  {
+    "id": "submission",
+    "question": "How must tenders be submitted?",
+    "expected_points": ["electronically / digitally", "via Tendsign"],
+    "expected_sources": ["09.1 AF"]
+  },
+  {
+    "id": "procedure",
+    "question": "Which procurement procedure is used for this tender?",
+    "expected_points": ["open procedure (öppet förfarande)", "under LOU"],
+    "expected_sources": ["09.1 AF"]
+  },
+  {
+    "id": "questions-deadline",
+    "question": "When are answers to questions asked during the tender period published?",
+    "expected_points": ["at the latest 6 days before the last day for tenders"],
+    "expected_sources": ["09.1 AF"]
+  },
+  {
+    "id": "negative-price",
+    "question": "Is negative pricing accepted in the bid form?",
+    "expected_points": ["no, negative pricing is not accepted"],
+    "expected_sources": ["13.1 Anbudsformulär"]
+  },
+  {
+    "id": "mandatory-no",
+    "question": "What happens if a bidder answers 'No' to a mandatory requirement?",
+    "expected_points": ["the tender is rejected / discarded"],
+    "expected_sources": ["13.1 Anbudsformulär"]
+  },
+  {
+    "id": "platschef-cv",
+    "question": "What must be attached for the site manager (platschef)?",
+    "expected_points": ["a CV", "per handling 9.1 point AFB.623"],
+    "expected_sources": ["13.1 Anbudsformulär"]
+  },
+  {
+    "id": "gullris",
+    "question": "What should be done if Canadian goldenrod (Kanadensiskt gullris) is found on site?",
+    "expected_points": ["dig it up with the roots", "transport to an approved tip", "report to Länsstyrelsen"],
+    "expected_sources": ["10.1 - Ej prissatt"]
+  },
+  {
+    "id": "power-cable",
+    "question": "How long in advance must Svenska kraftnät be informed before work near the power cable in the east?",
+    "expected_points": ["at least 10 days before the work is carried out"],
+    "expected_sources": ["10.1 - Ej prissatt"]
+  },
+  {
+    "id": "bbc15-deviation",
+    "question": "What is the deviation for BBC.15 Föroreningsundersökning in the Avsteg MER document?",
+    "expected_points": ["compensation is to be included in the general work (allmänna arbeten)"],
+    "expected_sources": ["6.3 Avsteg MER"]
+  },
+  {
+    "id": "kfu2",
+    "question": "What does the KFU 2 amendment (Ändrings-PM) concern and when is it dated?",
+    "expected_points": ["it is a change/amendment PM", "dated 2025-05-21"],
+    "expected_sources": ["KFU 2"]
+  }
+]

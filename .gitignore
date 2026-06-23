@@ -2,7 +2,8 @@ node_modules
 .env
 ffu.db
 backend/ffu.db
-backend/__pycache__/
+__pycache__/
+backend/eval/report.json
 .DS_Store
 backend/data/
 backend/ffu-full/
