@@ -69,3 +69,48 @@ export async function sendChat(message: string, history: ChatMessage[]): Promise
   const data = await res.json()
   return data.response
 }
+
+export type StreamHandlers = {
+  onToken: (text: string) => void
+  onStatus?: (status: string) => void
+  onError?: (message: string) => void
+}
+
+export async function sendChatStream(
+  message: string,
+  history: ChatMessage[],
+  handlers: StreamHandlers,
+): Promise<void> {
+  const res = await fetch('/api/chat/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history }),
+  })
+  await checkResponse(res, 'sendChatStream failed')
+  if (!res.body) throw new Error('sendChatStream failed: no response body')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+    for (const evt of events) {
+      const dataLine = evt.split('\n').find((line) => line.startsWith('data:'))
+      if (!dataLine) continue
+      let payload: { type: string; text?: string }
+      try {
+        payload = JSON.parse(dataLine.slice(5).trim())
+      } catch {
+        continue
+      }
+      if (payload.type === 'token' && payload.text) handlers.onToken(payload.text)
+      else if (payload.type === 'status' && payload.text) handlers.onStatus?.(payload.text)
+      else if (payload.type === 'error') handlers.onError?.(payload.text ?? 'Unknown error')
+    }
+  }
+}

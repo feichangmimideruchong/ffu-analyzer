@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 import chat
 import ingest
+import observability
 import retrieval
 from db import get_db, init_db
 
@@ -37,6 +39,21 @@ def process():
 @app.post("/chat")
 def chat_endpoint(body: dict):
     return chat.run(body.get("message", ""), body.get("history", []))
+
+
+@app.post("/chat/stream")
+def chat_stream(body: dict):
+    generator = chat.run_stream(body.get("message", ""), body.get("history", []))
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/stats")
+def stats():
+    return observability.stats()
 
 
 @app.get("/documents")

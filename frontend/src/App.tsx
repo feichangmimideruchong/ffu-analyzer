@@ -7,7 +7,7 @@ import {
   getDocument,
   getDocuments,
   processFFU,
-  sendChat,
+  sendChatStream,
 } from './api/client'
 import { DocumentList } from './components/DocumentList'
 import { DocumentViewer } from './components/DocumentViewer'
@@ -139,17 +139,34 @@ export default function App() {
     const history = [...messages]
     setInput('')
     setThinking(true)
-    setMessages([...history, { role: 'user', content: text }])
+    // Seed the user message plus an empty assistant message that we grow as tokens arrive.
+    setMessages([...history, { role: 'user', content: text }, { role: 'assistant', content: '' }])
+
+    let answer = ''
+    const setAssistant = (content: string) =>
+      setMessages((m) => {
+        const copy = [...m]
+        copy[copy.length - 1] = { role: 'assistant', content }
+        return copy
+      })
+
     try {
-      const response = await sendChat(text, history)
-      setMessages((m) => [...m, { role: 'assistant', content: response }])
-    } catch (e) {
-      setMessages((m) => [
-        ...m,
-        { role: 'assistant', content: `Error: ${e instanceof Error ? e.message : String(e)}` },
-      ])
+      await sendChatStream(text, history, {
+        onToken: (token) => {
+          answer += token
+          setAssistant(answer)
+        },
+        onStatus: (s) => setStatus(s),
+        onError: (msg) => {
+          answer += `${answer ? '\n\n' : ''}Error: ${msg}`
+          setAssistant(answer)
+        },
+      })
+    } catch (err) {
+      setAssistant(`Error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setThinking(false)
+      setStatus('')
     }
   }
 
