@@ -38,13 +38,34 @@ TOOLS = [
 
 def _document_catalog() -> str:
     rows = get_db().execute(
-        "SELECT id, filename, is_revision FROM documents ORDER BY id"
+        "SELECT id, filename, doc_kind, is_revision, revision_label, supersedes_id "
+        "FROM documents ORDER BY id"
     ).fetchall()
     lines = []
     for row in rows:
-        tag = " (revision)" if row["is_revision"] else ""
+        tags = []
+        if row["doc_kind"] == "amendment":
+            tags.append("AMENDMENT")
+        elif row["is_revision"]:
+            tags.append(f"REVISION {row['revision_label'] or ''}".strip())
+        if row["supersedes_id"]:
+            tags.append(f"supersedes doc {row['supersedes_id']}")
+        tag = f" [{', '.join(tags)}]" if tags else ""
         lines.append(f"{row['id']}: {row['filename']}{tag}")
     return "\n".join(lines)
+
+
+def _format_hit(hit: dict) -> str:
+    snippet = hit["text"][:1200]
+    status = hit.get("doc_kind", "base").upper()
+    if hit.get("revision_label"):
+        status += f" ({hit['revision_label']})"
+    if hit.get("supersedes_id"):
+        status += f", supersedes doc {hit['supersedes_id']}"
+    return (
+        f"[[{hit['document_id']}:{hit['page']}]] {hit['filename']} [{status}]"
+        f" (score {hit['score']})\n{snippet}"
+    )
 
 
 def _run_search(query: str, metrics: dict) -> str:
@@ -54,14 +75,7 @@ def _run_search(query: str, metrics: dict) -> str:
     metrics["hits"] = metrics.get("hits", 0) + len(hits)
     if not hits:
         return "No results. The document index may be empty (run Process FFU)."
-    blocks = []
-    for hit in hits:
-        snippet = hit["text"][:1200]
-        blocks.append(
-            f"[[{hit['document_id']}:{hit['page']}]] {hit['filename']}"
-            f" (score {hit['score']})\n{snippet}"
-        )
-    return "\n\n---\n\n".join(blocks)
+    return "\n\n---\n\n".join(_format_hit(h) for h in hits)
 
 
 def _read_document(document_id: int) -> str:

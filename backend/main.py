@@ -59,7 +59,7 @@ def stats():
 @app.get("/documents")
 def documents():
     rows = get_db().execute(
-        "SELECT id, filename, doc_code, is_revision, revision_label "
+        "SELECT id, filename, doc_code, doc_kind, is_revision, revision_label, supersedes_id "
         "FROM documents ORDER BY id"
     ).fetchall()
     return {"documents": [dict(r) for r in rows]}
@@ -69,7 +69,8 @@ def documents():
 def document(doc_id: int):
     db = get_db()
     row = db.execute(
-        "SELECT id, filename, doc_code, doc_number, is_revision, revision_label, content "
+        "SELECT id, filename, doc_code, doc_number, doc_kind, is_revision, "
+        "revision_label, supersedes_id, content "
         "FROM documents WHERE id = ?",
         (doc_id,),
     ).fetchone()

@@ -48,7 +48,8 @@ class _Bm25:
 class _Index:
     def __init__(self):
         rows = get_db().execute(
-            "SELECT c.id, c.document_id, c.page, c.heading, c.text, d.filename "
+            "SELECT c.id, c.document_id, c.page, c.heading, c.text, d.filename, "
+            "d.is_revision, d.revision_label, d.supersedes_id, d.doc_kind, d.doc_code "
             "FROM chunks c JOIN documents d ON d.id = c.document_id ORDER BY c.id"
         ).fetchall()
         self.rows = rows
@@ -89,18 +90,71 @@ class _Index:
         results = []
         for idx, score in top:
             row = self.rows[idx]
-            results.append(
-                {
-                    "chunk_id": row["id"],
-                    "document_id": row["document_id"],
-                    "filename": row["filename"],
-                    "page": row["page"],
-                    "heading": row["heading"],
-                    "text": row["text"],
-                    "score": round(float(score), 4),
-                }
-            )
-        return results
+            results.append(_row_to_hit(row, score))
+        return _expand_revision_hits(results, self.rows)
+
+
+def _row_to_hit(row, score: float) -> dict:
+    kind = row["doc_kind"] or ("revision" if row["is_revision"] else "base")
+    label = _revision_label(row)
+    return {
+        "chunk_id": row["id"],
+        "document_id": row["document_id"],
+        "filename": row["filename"],
+        "page": row["page"],
+        "heading": row["heading"],
+        "text": row["text"],
+        "score": round(float(score), 4),
+        "doc_kind": kind,
+        "revision_label": label,
+        "supersedes_id": row["supersedes_id"],
+    }
+
+
+def _revision_label(row) -> str | None:
+    if row["doc_kind"] == "amendment":
+        return row["revision_label"] or "amendment"
+    if row["is_revision"]:
+        return row["revision_label"] or "revision"
+    if row["supersedes_id"]:
+        return None
+    return None
+
+
+def _expand_revision_hits(hits: list[dict], all_rows) -> list[dict]:
+    """If a hit is from a base doc, also include chunks from its revision (and vice versa)."""
+    if not hits:
+        return hits
+    seen = {h["chunk_id"] for h in hits}
+    doc_ids = {h["document_id"] for h in hits}
+    db = get_db()
+    extra: list[dict] = []
+
+    for doc_id in list(doc_ids):
+        row = db.execute(
+            "SELECT id, doc_code, doc_kind, supersedes_id FROM documents WHERE id = ?",
+            (doc_id,),
+        ).fetchone()
+        if not row or not row["doc_code"] or row["doc_kind"] == "amendment":
+            continue
+        related = db.execute(
+            "SELECT id FROM documents WHERE doc_code = ? AND id != ? AND doc_kind != 'amendment'",
+            (row["doc_code"], doc_id),
+        ).fetchall()
+        for rel in related:
+            if rel["id"] in doc_ids:
+                continue
+            for chunk_row in all_rows:
+                if chunk_row["document_id"] != rel["id"]:
+                    continue
+                if chunk_row["id"] in seen:
+                    continue
+                extra.append(_row_to_hit(chunk_row, hits[0]["score"] * 0.9))
+                seen.add(chunk_row["id"])
+                break
+            doc_ids.add(rel["id"])
+
+    return hits + extra[: max(2, len(hits) // 2)]
 
 
 _index: _Index | None = None

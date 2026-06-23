@@ -24,12 +24,41 @@ def parse_metadata(filename: str) -> dict:
     label = None
     if rev_match:
         label = next((g for g in rev_match.groups() if g), None)
+    is_kfu = "kfu" in filename.lower()
+    is_revision = 1 if (rev_match and not is_kfu) or is_kfu else 0
+    if is_kfu and not label:
+        label = next((g for g in (rev_match.groups() if rev_match else ()) if g), "KFU")
+    doc_kind = "amendment" if is_kfu else ("revision" if is_revision else "base")
     return {
         "doc_code": code_match.group(1) if code_match else None,
         "doc_number": number_match.group(0) if number_match else None,
-        "is_revision": 1 if rev_match else 0,
+        "is_revision": is_revision,
         "revision_label": label,
+        "doc_kind": doc_kind,
     }
+
+
+def link_revisions(db, doc_ids: list[int], documents: list[tuple]) -> None:
+    """Link revision documents to their base via supersedes_id (same doc_code)."""
+    by_code: dict[str, list[tuple[int, dict]]] = {}
+    for doc_id, (path, _pages, meta, _content) in zip(doc_ids, documents):
+        code = meta.get("doc_code")
+        if not code or meta.get("doc_kind") == "amendment":
+            continue
+        by_code.setdefault(code, []).append((doc_id, meta))
+
+    for _code, group in by_code.items():
+        bases = [doc_id for doc_id, meta in group if meta.get("doc_kind") == "base"]
+        revs = [doc_id for doc_id, meta in group if meta.get("doc_kind") == "revision"]
+        if not revs:
+            continue
+        base_id = min(bases) if bases else None
+        for rev_id in revs:
+            if base_id:
+                db.execute(
+                    "UPDATE documents SET supersedes_id = ? WHERE id = ?",
+                    (base_id, rev_id),
+                )
 
 
 def extract_pdf(path: Path) -> list[tuple[int, str]]:
@@ -144,19 +173,23 @@ def run_pipeline() -> dict:
             doc_ids: list[int] = []
             for path, _pages, meta, content in documents:
                 cur = db.execute(
-                    "INSERT INTO documents(filename, rel_path, doc_code, doc_number, is_revision, revision_label, content)"
-                    " VALUES(?,?,?,?,?,?,?)",
+                    "INSERT INTO documents(filename, rel_path, doc_code, doc_number, doc_kind,"
+                    " is_revision, revision_label, content)"
+                    " VALUES(?,?,?,?,?,?,?,?)",
                     (
                         path.name,
                         str(path.relative_to(config.DATA_DIR)),
                         meta["doc_code"],
                         meta["doc_number"],
+                        meta["doc_kind"],
                         meta["is_revision"],
                         meta["revision_label"],
                         content,
                     ),
                 )
                 doc_ids.append(cur.lastrowid)
+
+            link_revisions(db, doc_ids, documents)
 
             for (doc_idx, ordinal, page, heading, chunk), vector in zip(chunk_rows, vectors):
                 cur = db.execute(

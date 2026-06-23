@@ -13,6 +13,10 @@ inline as [[document_id:page]] (for example [[3:5]]). You may cite multiple sour
 - If the documents do not contain the answer, say so plainly. Never invent facts, \
 figures, dates or document references.
 - Prefer quoting exact figures, codes (e.g. AMA codes) and dates from the source.
+- **Revision/amendment awareness:** Documents marked REVISION or AMENDMENT supersede \
+earlier base versions for the same doc code. When both appear in search results, \
+prefer the revision/amendment and say explicitly which version you rely on. Do not \
+answer from a superseded base if a newer revision exists in the results.
 - Answer in the language the user asks in; default to English with Swedish terms in \
 parentheses where useful.
 """
