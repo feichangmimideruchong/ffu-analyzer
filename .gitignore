@@ -5,4 +5,9 @@ backend/ffu.db
 backend/__pycache__/
 .DS_Store
 backend/data/
+backend/ffu-full/
 backend/ffu.db-journal
+venv/
+.venv/
+.envrc
+.direnv/
