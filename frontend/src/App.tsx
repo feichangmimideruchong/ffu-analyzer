@@ -25,7 +25,8 @@ type AsidePanel = 'documents' | 'overview' | 'graph'
 const ui = {
   page: {
     margin: 0,
-    minHeight: '100vh',
+    height: '100vh',
+    overflow: 'hidden',
     background: '#f7f7f8',
     color: '#1f2328',
     fontFamily: 'system-ui, sans-serif',
@@ -53,7 +54,8 @@ const ui = {
   main: {
     flex: 1,
     display: 'grid',
-    gridTemplateColumns: 'minmax(320px, 1fr) 240px minmax(360px, 1.3fr)',
+    gridTemplateColumns: 'minmax(320px, 1fr) minmax(360px, 1.3fr) 240px',
+    gridTemplateRows: 'minmax(0, 1fr)',
     gap: 1,
     background: '#e2e2e5',
     minHeight: 0,
@@ -290,6 +292,13 @@ export default function App() {
           </form>
         </section>
 
+        <section style={ui.pane} aria-label="Document viewer">
+          <h2 style={ui.paneHeading}>Source</h2>
+          <div style={ui.scroll}>
+            <DocumentViewer document={selectedDoc} loading={docLoading} activePage={activePage} />
+          </div>
+        </section>
+
         <aside
           style={ui.pane}
           aria-label={
@@ -325,13 +334,6 @@ export default function App() {
             )}
           </div>
         </aside>
-
-        <section style={ui.pane} aria-label="Document viewer">
-          <h2 style={ui.paneHeading}>Source</h2>
-          <div style={ui.scroll}>
-            <DocumentViewer document={selectedDoc} loading={docLoading} activePage={activePage} />
-          </div>
-        </section>
       </main>
     </div>
   )
