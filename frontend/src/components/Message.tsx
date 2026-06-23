@@ -46,7 +46,7 @@ export function Message(props: MessageProps) {
                     margin: '0 0.125rem',
                     border: 'none',
                     background: 'none',
-                    color: '#2563eb',
+                    color: '#1d4ed8',
                     cursor: 'pointer',
                     font: 'inherit',
                     textDecoration: 'underline',

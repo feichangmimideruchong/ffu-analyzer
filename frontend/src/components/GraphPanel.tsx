@@ -92,8 +92,7 @@ export function GraphPanel({ graph, selectedId, loading, onRefresh, onSelectNode
           <svg
             viewBox={`0 0 ${SIZE} ${SIZE}`}
             width="100%"
-            role="group"
-            aria-label={`Reference graph: ${nodes.length} documents, ${edges.length} links. Activate a document to focus it.`}
+            aria-hidden="true"
             style={{ display: 'block', maxWidth: 380, margin: '0 auto' }}
           >
             <defs>
@@ -137,17 +136,8 @@ export function GraphPanel({ graph, selectedId, loading, onRefresh, onSelectNode
                 <g
                   key={node.id}
                   transform={`translate(${p.x}, ${p.y})`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${node.filename}${isSelected ? ', selected' : ''}`}
                   onClick={() => onSelectNode(node.id)}
-                  onKeyDown={(ev) => {
-                    if (ev.key === 'Enter' || ev.key === ' ') {
-                      ev.preventDefault()
-                      onSelectNode(node.id)
-                    }
-                  }}
-                  style={{ cursor: 'pointer', opacity: dim ? 0.35 : 1 }}
+                  style={{ cursor: 'pointer', opacity: dim ? 0.45 : 1 }}
                 >
                   <circle
                     r={NODE_R}
@@ -168,6 +158,41 @@ export function GraphPanel({ graph, selectedId, loading, onRefresh, onSelectNode
               )
             })}
           </svg>
+        )}
+
+        {nodes.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <h3 style={{ fontSize: 12, color: '#6b7280', margin: '0 0 6px', fontWeight: 600 }}>
+              Documents
+            </h3>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
+              {nodes.map((node) => (
+                <li key={node.id}>
+                  <button
+                    type="button"
+                    aria-current={node.id === selectedId ? 'true' : undefined}
+                    onClick={() => onSelectNode(node.id)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '6px 8px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      background: node.id === selectedId ? '#dbeafe' : '#fff',
+                      font: 'inherit',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span aria-hidden="true" style={{ color: nodeColor(node.doc_kind) }}>
+                      ●{' '}
+                    </span>
+                    {node.filename}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <div style={{ marginTop: 14 }}>
@@ -225,7 +250,7 @@ function ConnectionList({
     <div style={{ marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>{title}</div>
       {items.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>{empty}</div>
+        <div style={{ fontSize: 12, color: '#6b7280' }}>{empty}</div>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
           {items.map((item) => (

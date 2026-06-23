@@ -36,7 +36,7 @@ export function OverviewPanel(props: OverviewPanelProps) {
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
         {visible.length === 0 ? (
-          <p style={{ color: '#888' }}>No overview items yet. Run Generate overview after processing.</p>
+          <p style={{ color: '#4b5563' }}>No overview items yet. Run Generate overview after processing.</p>
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {visible.map((item) => (

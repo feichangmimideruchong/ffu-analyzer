@@ -85,11 +85,6 @@ const ui = {
     font: 'inherit',
   },
   scroll: { flex: 1, overflow: 'auto', padding: 14 },
-  skipLink: {
-    position: 'absolute' as const,
-    left: -9999,
-    top: 0,
-  },
 }
 
 export default function App() {
@@ -231,7 +226,7 @@ export default function App() {
 
   return (
     <div style={ui.page}>
-      <a href="#chat" style={ui.skipLink}>
+      <a href="#chat" className="skip-link">
         Skip to chat
       </a>
       <header style={ui.header}>
@@ -261,7 +256,7 @@ export default function App() {
       </header>
 
       <main style={ui.main}>
-        <section style={ui.pane} id="chat" aria-label="Chat">
+        <section style={ui.pane} id="chat" aria-label="Chat" tabIndex={-1}>
           <h2 style={ui.paneHeading}>Chat</h2>
           <div style={ui.chatLog}>
             {messages.map((message, i) => (
@@ -273,13 +268,13 @@ export default function App() {
               />
             ))}
             {thinking && (
-              <div aria-live="polite" style={{ color: '#888' }}>
+              <div aria-live="polite" style={{ color: '#4b5563' }}>
                 Thinking…
               </div>
             )}
           </div>
           <form style={ui.form} onSubmit={handleSend}>
-            <label htmlFor="chat-input" style={{ position: 'absolute', left: -9999 }}>
+            <label htmlFor="chat-input" className="sr-only">
               Ask about the FFU documents
             </label>
             <input

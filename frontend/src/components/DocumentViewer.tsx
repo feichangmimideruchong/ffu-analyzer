@@ -17,7 +17,8 @@ export function DocumentViewer(props: DocumentViewerProps) {
     const element = pageRefs.current.get(props.activePage)
     if (!element) return
 
-    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    element.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' })
     setHighlightedPage(props.activePage)
 
     const timeout = setTimeout(() => setHighlightedPage(null), 1500)
@@ -30,7 +31,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
 
   if (props.document == null) {
     return (
-      <div style={{ color: '#9ca3af' }}>
+      <div style={{ color: '#4b5563' }}>
         Select a document or click a citation to view its source.
       </div>
     )
@@ -49,7 +50,7 @@ export function DocumentViewer(props: DocumentViewerProps) {
   return (
     <article>
       <header style={{ marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0, display: 'inline' }}>{document.filename}</h2>
+        <h3 style={{ margin: 0, display: 'inline' }}>{document.filename}</h3>
         {document.is_revision ? (
           <span
             style={{
