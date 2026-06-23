@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import type { DocumentDetail } from '../api/client'
 
 export type DocumentViewerProps = {
@@ -8,44 +8,115 @@ export type DocumentViewerProps = {
 }
 
 // Renders the lightweight Markdown that pymupdf4llm produces (headings, bold,
-// <br> line breaks) instead of showing the raw ##/** markers as literal text.
+// italics, tables, <br> line breaks) instead of showing raw markers as text.
+
+// Italic: _text_ / *text* only at word boundaries, so codes like "Eka 3_3" are left alone.
+function renderItalic(text: string, keyBase: string) {
+  const re = /(?<![\w])([_*])([^\n]+?)\1(?![\w])/g
+  const nodes: ReactNode[] = []
+  let last = 0
+  let n = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(<span key={`${keyBase}t${n}`}>{text.slice(last, m.index)}</span>)
+    nodes.push(<em key={`${keyBase}e${n}`}>{m[2]}</em>)
+    last = m.index + m[0].length
+    n += 1
+  }
+  if (last < text.length) nodes.push(<span key={`${keyBase}t${n}`}>{text.slice(last)}</span>)
+  return nodes
+}
+
 function renderInline(text: string) {
   return text.split(/\*\*/).map((part, i) =>
-    i % 2 === 1 ? <strong key={i}>{part}</strong> : <span key={i}>{part}</span>,
+    i % 2 === 1 ? (
+      <strong key={i}>{part}</strong>
+    ) : (
+      <span key={i}>{renderItalic(part, String(i))}</span>
+    ),
+  )
+}
+
+const isTableLine = (line: string) => line.includes('|') && line.trim() !== ''
+const isSeparatorRow = (line: string) => /^[\s|:-]*-[\s|:-]*$/.test(line)
+
+function splitCells(line: string): string[] {
+  const cells = line.split('|').map((c) => c.trim())
+  // Markdown rows are wrapped in pipes (|a|b|), producing empty leading/trailing cells.
+  if (cells.length && cells[0] === '') cells.shift()
+  if (cells.length && cells[cells.length - 1] === '') cells.pop()
+  return cells
+}
+
+function Table({ rows }: { rows: string[][] }) {
+  const cols = Math.max(...rows.map((r) => r.length), 1)
+  return (
+    <div style={{ overflowX: 'auto', margin: '0.4rem 0' }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: '0.85rem', width: '100%' }}>
+        <tbody>
+          {rows.map((row, r) => (
+            <tr key={r}>
+              {Array.from({ length: cols }).map((_, c) => (
+                <td
+                  key={c}
+                  style={{
+                    border: '1px solid #e5e7eb',
+                    padding: '3px 6px',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {renderInline(row[c] ?? '')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
 function MarkdownText({ text }: { text: string }) {
   const lines = text.replace(/<br\s*\/?>/gi, '\n').split('\n')
-  return (
-    <>
-      {lines.map((line, i) => {
-        const heading = /^(#{1,6})\s+(.*)$/.exec(line)
-        if (heading) {
-          const level = heading[1].length
-          const content = heading[2].replace(/\*\*/g, '').trim()
-          return (
-            <div
-              key={i}
-              style={{
-                fontWeight: 700,
-                fontSize: level <= 2 ? '1rem' : '0.9rem',
-                margin: '0.6rem 0 0.2rem',
-              }}
-            >
-              {content}
-            </div>
-          )
-        }
-        if (line.trim() === '') return <div key={i} style={{ height: '0.5rem' }} />
-        return (
-          <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
-            {renderInline(line)}
-          </div>
-        )
-      })}
-    </>
-  )
+  const blocks: ReactNode[] = []
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (isTableLine(line)) {
+      const rows: string[][] = []
+      while (i < lines.length && isTableLine(lines[i])) {
+        if (!isSeparatorRow(lines[i])) rows.push(splitCells(lines[i]))
+        i += 1
+      }
+      if (rows.length) blocks.push(<Table key={`tbl${i}`} rows={rows} />)
+      continue
+    }
+
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
+    if (heading) {
+      const level = heading[1].length
+      const content = heading[2].replace(/\*\*/g, '').trim()
+      blocks.push(
+        <div
+          key={i}
+          style={{ fontWeight: 700, fontSize: level <= 2 ? '1rem' : '0.9rem', margin: '0.6rem 0 0.2rem' }}
+        >
+          {content}
+        </div>,
+      )
+    } else if (line.trim() === '') {
+      blocks.push(<div key={i} style={{ height: '0.5rem' }} />)
+    } else {
+      blocks.push(
+        <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
+          {renderInline(line)}
+        </div>,
+      )
+    }
+    i += 1
+  }
+  return <>{blocks}</>
 }
 
 export function DocumentViewer(props: DocumentViewerProps) {
