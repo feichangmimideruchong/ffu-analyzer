@@ -6,10 +6,10 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       proxy: {
+        // Backend now serves routes under /api, so forward the prefix as-is.
         '/api': {
           target: 'http://localhost:8000',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
     },

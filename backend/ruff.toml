@@ -1,0 +1,6 @@
+line-length = 100
+target-version = "py312"
+extend-exclude = ["venv", ".venv", "ffu-full", "__pycache__", "data"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]

@@ -1,5 +1,6 @@
-import references
 from conftest import insert_chunk, insert_document
+
+import references
 
 
 class TestNormalizeCode:

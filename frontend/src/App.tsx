@@ -1,4 +1,11 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import {
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 
 import {
   ChatMessage,
@@ -21,6 +28,54 @@ import { Message } from './components/Message'
 import { OverviewPanel } from './components/OverviewPanel'
 
 type AsidePanel = 'documents' | 'overview' | 'graph'
+
+const clamp = (value: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, value))
+
+function Resizer({ onResize, label }: { onResize: (dx: number) => void; label: string }) {
+  const lastX = useRef(0)
+
+  const handlePointerDown = (e: ReactPointerEvent) => {
+    e.preventDefault()
+    lastX.current = e.clientX
+    const move = (ev: PointerEvent) => {
+      onResize(ev.clientX - lastX.current)
+      lastX.current = ev.clientX
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  const handleKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      onResize(-16)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      onResize(16)
+    }
+  }
+
+  return (
+    <div
+      className="resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onKeyDown={handleKeyDown}
+      style={ui.resizer}
+    />
+  )
+}
 
 const ui = {
   page: {
@@ -53,19 +108,41 @@ const ui = {
   status: { color: '#555', fontSize: 14 },
   main: {
     flex: 1,
-    display: 'grid',
-    gridTemplateColumns: 'minmax(320px, 1fr) minmax(360px, 1.3fr) 240px',
-    gridTemplateRows: 'minmax(0, 1fr)',
-    gap: 1,
+    display: 'flex',
+    flexDirection: 'row' as const,
     background: '#e2e2e5',
     minHeight: 0,
+    overflow: 'hidden',
   },
   pane: {
     background: '#fff',
     display: 'flex',
     flexDirection: 'column' as const,
     minHeight: 0,
+    minWidth: 0,
     overflow: 'hidden',
+  },
+  resizer: {
+    flex: '0 0 6px',
+    cursor: 'col-resize',
+    alignSelf: 'stretch' as const,
+  },
+  paneHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottom: '1px solid #eee',
+    paddingRight: 8,
+  },
+  iconButton: {
+    border: '1px solid #c7c7cc',
+    borderRadius: 6,
+    background: '#fff',
+    font: 'inherit',
+    fontSize: 16,
+    lineHeight: 1,
+    cursor: 'pointer',
+    padding: '2px 8px',
   },
   paneHeading: {
     margin: 0,
@@ -105,6 +182,10 @@ export default function App() {
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] })
   const [graphLoading, setGraphLoading] = useState(false)
+
+  const [chatOpen, setChatOpen] = useState(true)
+  const [chatWidth, setChatWidth] = useState(420)
+  const [asideWidth, setAsideWidth] = useState(280)
 
   const latestDocRequest = useRef<number | null>(null)
 
@@ -233,6 +314,14 @@ export default function App() {
       </a>
       <header style={ui.header}>
         <h1 style={ui.title}>FFU Analyzer</h1>
+        <button
+          type="button"
+          aria-pressed={chatOpen}
+          style={{ ...ui.button, background: chatOpen ? '#dbeafe' : '#fff' }}
+          onClick={() => setChatOpen((v) => !v)}
+        >
+          {chatOpen ? 'Hide chat' : 'Show chat'}
+        </button>
         <button type="button" style={ui.button} onClick={handleProcess}>
           Process FFU
         </button>
@@ -258,8 +347,25 @@ export default function App() {
       </header>
 
       <main style={ui.main}>
-        <section style={ui.pane} id="chat" aria-label="Chat" tabIndex={-1}>
-          <h2 style={ui.paneHeading}>Chat</h2>
+        {chatOpen && (
+          <section
+            style={{ ...ui.pane, flex: `0 0 ${chatWidth}px` }}
+            id="chat"
+            aria-label="Chat"
+            tabIndex={-1}
+          >
+            <div style={ui.paneHead}>
+              <h2 style={{ ...ui.paneHeading, borderBottom: 'none', flex: 1 }}>Chat</h2>
+              <button
+                type="button"
+                style={ui.iconButton}
+                aria-label="Close chat"
+                title="Close chat"
+                onClick={() => setChatOpen(false)}
+              >
+                ×
+              </button>
+            </div>
           <div style={ui.chatLog}>
             {messages.map((message, i) => (
               <Message
@@ -290,17 +396,30 @@ export default function App() {
               Send
             </button>
           </form>
-        </section>
+          </section>
+        )}
 
-        <section style={ui.pane} aria-label="Document viewer">
+        {chatOpen && (
+          <Resizer
+            label="Resize chat panel"
+            onResize={(dx) => setChatWidth((w) => clamp(w + dx, 260, 760))}
+          />
+        )}
+
+        <section style={{ ...ui.pane, flex: '1 1 0' }} aria-label="Document viewer">
           <h2 style={ui.paneHeading}>Source</h2>
           <div style={ui.scroll}>
             <DocumentViewer document={selectedDoc} loading={docLoading} activePage={activePage} />
           </div>
         </section>
 
+        <Resizer
+          label="Resize documents panel"
+          onResize={(dx) => setAsideWidth((w) => clamp(w - dx, 200, 560))}
+        />
+
         <aside
-          style={ui.pane}
+          style={{ ...ui.pane, flex: `0 0 ${asideWidth}px` }}
           aria-label={
             panel === 'overview' ? 'Overview' : panel === 'graph' ? 'Reference graph' : 'Document list'
           }

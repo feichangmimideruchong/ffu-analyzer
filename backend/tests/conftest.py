@@ -16,9 +16,12 @@ from db import SCHEMA  # noqa: E402
 @pytest.fixture
 def memdb(monkeypatch):
     """An in-memory SQLite database wired into the app's get_db() singleton."""
-    conn = sqlite3.connect(":memory:")
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    # Mark the schema current so init_db() (run by the app lifespan in API tests)
+    # treats it as up to date and does not drop the seeded tables.
+    conn.execute(f"PRAGMA user_version = {db_module.SCHEMA_VERSION}")
     monkeypatch.setattr(db_module, "_conn", conn)
     retrieval.reset_index()
     observability._records.clear()

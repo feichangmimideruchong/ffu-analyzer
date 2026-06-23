@@ -1,5 +1,6 @@
-import vision
 from conftest import insert_document
+
+import vision
 
 
 class TestViewPageGuards:

@@ -49,6 +49,16 @@ body {
   top: 0;
 }
 
+/* Draggable column dividers between the main panes. */
+.resizer {
+  background: #e2e2e5;
+  transition: background 0.15s ease;
+}
+
+.resizer:hover {
+  background: #9ca3af;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
