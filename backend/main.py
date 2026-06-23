@@ -9,6 +9,7 @@ import chat
 import ingest
 import observability
 import overview
+import references
 import retrieval
 from db import get_db, init_db
 
@@ -33,8 +34,9 @@ def process():
     logger.info("Processing documents...")
     result = ingest.run_pipeline()
     retrieval.reset_index()
-    logger.info(f"Done: {result}")
-    return {"status": "ok", "count": result["documents"], **result}
+    refs = references.build_references()
+    logger.info(f"Done: {result}, references: {refs}")
+    return {"status": "ok", "count": result["documents"], **result, "references": refs}
 
 
 @app.post("/chat")
@@ -68,6 +70,21 @@ def overview_generate():
 @app.get("/overview")
 def overview_list(category: str | None = None):
     return {"items": overview.list_overview(category)}
+
+
+@app.post("/references/build")
+def references_build():
+    return {"status": "ok", **references.build_references()}
+
+
+@app.get("/graph")
+def graph():
+    return references.graph()
+
+
+@app.get("/document/{doc_id}/references")
+def document_references(doc_id: int):
+    return references.document_references(doc_id)
 
 
 @app.get("/documents")

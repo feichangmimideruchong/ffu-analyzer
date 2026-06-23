@@ -139,3 +139,49 @@ export async function fetchOverview(category?: string): Promise<OverviewItem[]> 
   const data = await res.json()
   return data.items
 }
+
+export type GraphNode = {
+  id: number
+  filename: string
+  doc_code: string | null
+  doc_kind: string | null
+}
+
+export type GraphEdge = {
+  source: number
+  target: number
+  count: number
+  page: number | null
+  labels: string[]
+}
+
+export type Graph = {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export type DocumentReference = {
+  document_id: number
+  filename: string
+  ref_text: string
+  ref_type: string
+  page: number | null
+  snippet: string
+}
+
+export type DocumentReferences = {
+  outgoing: DocumentReference[]
+  incoming: DocumentReference[]
+}
+
+export async function fetchGraph(): Promise<Graph> {
+  const res = await fetch('/api/graph')
+  await checkResponse(res, 'fetchGraph failed')
+  return res.json()
+}
+
+export async function fetchDocumentReferences(id: number): Promise<DocumentReferences> {
+  const res = await fetch(`/api/document/${id}/references`)
+  await checkResponse(res, 'fetchDocumentReferences failed')
+  return res.json()
+}

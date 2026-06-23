@@ -4,18 +4,23 @@ import {
   ChatMessage,
   DocumentDetail,
   DocumentSummary,
+  fetchGraph,
   fetchOverview,
   generateOverview,
   getDocument,
   getDocuments,
+  Graph,
   OverviewItem,
   processFFU,
   sendChatStream,
 } from './api/client'
 import { DocumentList } from './components/DocumentList'
 import { DocumentViewer } from './components/DocumentViewer'
+import { GraphPanel } from './components/GraphPanel'
 import { Message } from './components/Message'
 import { OverviewPanel } from './components/OverviewPanel'
+
+type AsidePanel = 'documents' | 'overview' | 'graph'
 
 const ui = {
   page: {
@@ -98,9 +103,11 @@ export default function App() {
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
   const [status, setStatus] = useState('')
-  const [showOverview, setShowOverview] = useState(false)
+  const [panel, setPanel] = useState<AsidePanel>('documents')
   const [overviewItems, setOverviewItems] = useState<OverviewItem[]>([])
   const [overviewLoading, setOverviewLoading] = useState(false)
+  const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] })
+  const [graphLoading, setGraphLoading] = useState(false)
 
   const latestDocRequest = useRef<number | null>(null)
 
@@ -111,18 +118,27 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (showOverview && overviewItems.length === 0) {
+    if (panel === 'overview' && overviewItems.length === 0) {
       fetchOverview()
         .then(setOverviewItems)
         .catch(() => undefined)
     }
-  }, [showOverview, overviewItems.length])
+  }, [panel, overviewItems.length])
+
+  useEffect(() => {
+    if (panel === 'graph' && graph.edges.length === 0) {
+      fetchGraph()
+        .then(setGraph)
+        .catch(() => undefined)
+    }
+  }, [panel, graph.edges.length])
 
   const handleProcess = async () => {
     setStatus('Processing documents…')
     try {
       const result = await processFFU()
       setDocuments(await getDocuments())
+      setGraph(await fetchGraph())
       setStatus(`Indexed ${result.documents} document(s), ${result.chunks} chunk(s).`)
     } catch (e) {
       setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
@@ -131,7 +147,7 @@ export default function App() {
 
   const handleGenerateOverview = async () => {
     setOverviewLoading(true)
-    setShowOverview(true)
+    setPanel('overview')
     setStatus('Extracting overview…')
     try {
       await generateOverview()
@@ -141,6 +157,19 @@ export default function App() {
       setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setOverviewLoading(false)
+    }
+  }
+
+  const handleRefreshGraph = async () => {
+    setGraphLoading(true)
+    setStatus('Building reference graph…')
+    try {
+      setGraph(await fetchGraph())
+      setStatus('Reference graph updated.')
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setGraphLoading(false)
     }
   }
 
@@ -212,10 +241,19 @@ export default function App() {
         </button>
         <button
           type="button"
-          style={{ ...ui.button, background: showOverview ? '#dbeafe' : '#fff' }}
-          onClick={() => setShowOverview((v) => !v)}
+          aria-pressed={panel === 'overview'}
+          style={{ ...ui.button, background: panel === 'overview' ? '#dbeafe' : '#fff' }}
+          onClick={() => setPanel((p) => (p === 'overview' ? 'documents' : 'overview'))}
         >
           Overview
+        </button>
+        <button
+          type="button"
+          aria-pressed={panel === 'graph'}
+          style={{ ...ui.button, background: panel === 'graph' ? '#dbeafe' : '#fff' }}
+          onClick={() => setPanel((p) => (p === 'graph' ? 'documents' : 'graph'))}
+        >
+          Reference graph
         </button>
         <span role="status" aria-live="polite" style={ui.status}>
           {status}
@@ -257,18 +295,33 @@ export default function App() {
           </form>
         </section>
 
-        <aside style={ui.pane} aria-label={showOverview ? 'Overview' : 'Document list'}>
-          <h2 style={ui.paneHeading}>{showOverview ? 'Overview' : 'Documents'}</h2>
+        <aside
+          style={ui.pane}
+          aria-label={
+            panel === 'overview' ? 'Overview' : panel === 'graph' ? 'Reference graph' : 'Document list'
+          }
+        >
+          <h2 style={ui.paneHeading}>
+            {panel === 'overview' ? 'Overview' : panel === 'graph' ? 'Reference graph' : 'Documents'}
+          </h2>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            {showOverview ? (
+            {panel === 'overview' ? (
               <OverviewPanel
                 items={overviewItems}
                 loading={overviewLoading}
                 onGenerate={handleGenerateOverview}
                 onOpenSource={(docId, page) => {
-                  setShowOverview(false)
+                  setPanel('documents')
                   openDocument(docId, page)
                 }}
+              />
+            ) : panel === 'graph' ? (
+              <GraphPanel
+                graph={graph}
+                selectedId={selectedId}
+                loading={graphLoading}
+                onRefresh={handleRefreshGraph}
+                onSelectNode={(docId) => openDocument(docId)}
               />
             ) : (
               <div style={ui.scroll}>
