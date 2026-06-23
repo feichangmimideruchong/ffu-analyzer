@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 import chat
@@ -46,3 +46,20 @@ def documents():
         "FROM documents ORDER BY id"
     ).fetchall()
     return {"documents": [dict(r) for r in rows]}
+
+
+@app.get("/document/{doc_id}")
+def document(doc_id: int):
+    db = get_db()
+    row = db.execute(
+        "SELECT id, filename, doc_code, doc_number, is_revision, revision_label, content "
+        "FROM documents WHERE id = ?",
+        (doc_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    chunks = db.execute(
+        "SELECT page, heading, text FROM chunks WHERE document_id = ? ORDER BY ordinal",
+        (doc_id,),
+    ).fetchall()
+    return {**dict(row), "chunks": [dict(c) for c in chunks]}

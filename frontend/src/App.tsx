@@ -1,0 +1,222 @@
+import { FormEvent, useEffect, useRef, useState } from 'react'
+
+import {
+  ChatMessage,
+  DocumentDetail,
+  DocumentSummary,
+  getDocument,
+  getDocuments,
+  processFFU,
+  sendChat,
+} from './api/client'
+import { DocumentList } from './components/DocumentList'
+import { DocumentViewer } from './components/DocumentViewer'
+import { Message } from './components/Message'
+
+const ui = {
+  page: {
+    margin: 0,
+    minHeight: '100vh',
+    background: '#f7f7f8',
+    color: '#1f2328',
+    fontFamily: 'system-ui, sans-serif',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    padding: '12px 20px',
+    borderBottom: '1px solid #e2e2e5',
+    background: '#fff',
+  },
+  title: { margin: 0, fontSize: 18 },
+  button: {
+    padding: '8px 14px',
+    border: '1px solid #c7c7cc',
+    borderRadius: 8,
+    background: '#fff',
+    font: 'inherit',
+    cursor: 'pointer',
+  },
+  status: { color: '#555', fontSize: 14 },
+  main: {
+    flex: 1,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(320px, 1fr) 240px minmax(360px, 1.3fr)',
+    gap: 1,
+    background: '#e2e2e5',
+    minHeight: 0,
+  },
+  pane: {
+    background: '#fff',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  paneHeading: {
+    margin: 0,
+    padding: '10px 14px',
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#6b7280',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+    borderBottom: '1px solid #eee',
+  },
+  chatLog: { flex: 1, overflow: 'auto', padding: 14 },
+  form: { display: 'flex', gap: 8, padding: 12, borderTop: '1px solid #eee' },
+  field: {
+    flex: 1,
+    padding: '10px 12px',
+    border: '1px solid #c7c7cc',
+    borderRadius: 8,
+    font: 'inherit',
+  },
+  scroll: { flex: 1, overflow: 'auto', padding: 14 },
+  skipLink: {
+    position: 'absolute' as const,
+    left: -9999,
+    top: 0,
+  },
+}
+
+export default function App() {
+  const [documents, setDocuments] = useState<DocumentSummary[]>([])
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<DocumentDetail | null>(null)
+  const [docLoading, setDocLoading] = useState(false)
+  const [activePage, setActivePage] = useState<number | null>(null)
+
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [thinking, setThinking] = useState(false)
+  const [status, setStatus] = useState('')
+
+  const latestDocRequest = useRef<number | null>(null)
+
+  useEffect(() => {
+    getDocuments()
+      .then(setDocuments)
+      .catch(() => undefined)
+  }, [])
+
+  const handleProcess = async () => {
+    setStatus('Processing documents…')
+    try {
+      const result = await processFFU()
+      setDocuments(await getDocuments())
+      setStatus(`Indexed ${result.documents} document(s), ${result.chunks} chunk(s).`)
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  const openDocument = async (id: number, page: number | null = null) => {
+    latestDocRequest.current = id
+    setSelectedId(id)
+    setDocLoading(true)
+    setActivePage(null)
+    try {
+      const detail = await getDocument(id)
+      if (latestDocRequest.current !== id) return // a newer selection superseded this one
+      setSelectedDoc(detail)
+      setActivePage(page)
+    } catch (e) {
+      if (latestDocRequest.current !== id) return
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      if (latestDocRequest.current === id) setDocLoading(false)
+    }
+  }
+
+  const handleSend = async (e: FormEvent) => {
+    e.preventDefault()
+    const text = input.trim()
+    if (!text || thinking) return
+    const history = [...messages]
+    setInput('')
+    setThinking(true)
+    setMessages([...history, { role: 'user', content: text }])
+    try {
+      const response = await sendChat(text, history)
+      setMessages((m) => [...m, { role: 'assistant', content: response }])
+    } catch (e) {
+      setMessages((m) => [
+        ...m,
+        { role: 'assistant', content: `Error: ${e instanceof Error ? e.message : String(e)}` },
+      ])
+    } finally {
+      setThinking(false)
+    }
+  }
+
+  return (
+    <div style={ui.page}>
+      <a href="#chat" style={ui.skipLink}>
+        Skip to chat
+      </a>
+      <header style={ui.header}>
+        <h1 style={ui.title}>FFU Analyzer</h1>
+        <button type="button" style={ui.button} onClick={handleProcess}>
+          Process FFU
+        </button>
+        <span role="status" aria-live="polite" style={ui.status}>
+          {status}
+        </span>
+      </header>
+
+      <main style={ui.main}>
+        <section style={ui.pane} id="chat" aria-label="Chat">
+          <h2 style={ui.paneHeading}>Chat</h2>
+          <div style={ui.chatLog}>
+            {messages.map((message, i) => (
+              <Message
+                key={i}
+                role={message.role}
+                content={message.content}
+                onCitation={(docId, page) => openDocument(docId, page)}
+              />
+            ))}
+            {thinking && (
+              <div aria-live="polite" style={{ color: '#888' }}>
+                Thinking…
+              </div>
+            )}
+          </div>
+          <form style={ui.form} onSubmit={handleSend}>
+            <label htmlFor="chat-input" style={{ position: 'absolute', left: -9999 }}>
+              Ask about the FFU documents
+            </label>
+            <input
+              id="chat-input"
+              style={ui.field}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about the FFU documents"
+            />
+            <button type="submit" style={ui.button} disabled={thinking}>
+              Send
+            </button>
+          </form>
+        </section>
+
+        <aside style={ui.pane} aria-label="Document list">
+          <h2 style={ui.paneHeading}>Documents</h2>
+          <div style={ui.scroll}>
+            <DocumentList documents={documents} selectedId={selectedId} onSelect={openDocument} />
+          </div>
+        </aside>
+
+        <section style={ui.pane} aria-label="Document viewer">
+          <h2 style={ui.paneHeading}>Source</h2>
+          <div style={ui.scroll}>
+            <DocumentViewer document={selectedDoc} loading={docLoading} activePage={activePage} />
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
